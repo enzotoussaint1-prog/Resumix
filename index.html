@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resumix</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:16px;background:#f6f7fb;color:#222}
+  h1{margin:8px 0}
+  .card{background:#fff;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  input,button{font-size:16px;padding:10px;margin:4px 0;width:100%;box-sizing:border-box;border-radius:8px;border:1px solid #ccc}
+  button{background:#4f46e5;color:#fff;border:0;cursor:pointer}
+  button.sec{background:#e5e7eb;color:#222}
+  .res{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
+  .res button{width:auto;padding:8px 14px}
+  iframe{width:100%;height:70vh;border:0;border-radius:8px}
+  #msg{color:#b91c1c;min-height:20px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<h1>Resumix</h1>
+<p id="msg"></p>
+
+<div id="auth" class="card">
+  <input id="email" type="email" placeholder="Email">
+  <input id="pass" type="password" placeholder="Contraseña">
+  <button id="btnLogin">Ingresar</button>
+  <button id="btnSignup" class="sec">Crear cuenta</button>
+</div>
+
+<div id="app" class="hidden">
+  <button id="btnLogout" class="sec">Cerrar sesión</button>
+  <h2>Mis kits</h2>
+  <div id="kits"></div>
+  <div id="visor" class="card hidden"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = 'https://gafyovwtymsaspipjrga.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_wwso20bIM4YTZZt6-k3nlg_jbmFYn7E';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = id => document.getElementById(id);
+const msg = t => $('msg').textContent = t || '';
+
+async function render() {
+  const { data: { session } } = await db.auth.getSession();
+  $('auth').classList.toggle('hidden', !!session);
+  $('app').classList.toggle('hidden', !session);
+  if (session) cargarKits();
+}
+
+async function cargarKits() {
+  const { data, error } = await db.from('compras')
+    .select('kits(nombre, materia, anio, recursos(id, titulo, tipo, orden))')
+    .eq('estado', 'aprobada');
+  if (error) return msg('Error al cargar tus kits');
+  $('kits').innerHTML = '';
+  if (!data.length) $('kits').innerHTML = '<div class="card">Todavía no tenés kits.</div>';
+  data.forEach(c => {
+    const k = c.kits;
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = '<strong></strong>';
+    div.firstChild.textContent = k.nombre;
+    (k.recursos || []).sort((a, b) => a.orden - b.orden).forEach(r => {
+      const fila = document.createElement('div');
+      fila.className = 'res';
+      const t = document.createElement('span');
+      t.textContent = r.titulo;
+      const b = document.createElement('button');
+      b.textContent = 'Abrir';
+      b.onclick = () => abrir(r);
+      fila.append(t, b);
+      div.append(fila);
+    });
+    $('kits').append(div);
+  });
+}
+
+async function abrir(r) {
+  msg('');
+  const { data, error } = await db.functions.invoke('obtener-archivo', { body: { recurso_id: r.id } });
+  if (error || !data?.url) return msg('No se pudo abrir el archivo');
+  const visor = $('visor');
+  visor.classList.remove('hidden');
+  visor.innerHTML = '<iframe></iframe>';
+  visor.firstChild.src = data.url + '#toolbar=0';
+  visor.scrollIntoView();
+}
+
+$('btnLogin').onclick = async () => {
+  const { error } = await db.auth.signInWithPassword({ email: $('email').value, password: $('pass').value });
+  error ? msg('Email o contraseña incorrectos') : (msg(''), render());
+};
+$('btnSignup').onclick = async () => {
+  const { error } = await db.auth.signUp({ email: $('email').value, password: $('pass').value });
+  msg(error ? error.message : 'Cuenta creada. Revisá tu email para confirmarla.');
+};
+$('btnLogout').onclick = async () => { await db.auth.signOut(); $('visor').classList.add('hidden'); render(); };
+
+db.auth.onAuthStateChange(() => render());
+render();
+</script>
+</body>
+</html>
