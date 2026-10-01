@@ -93,7 +93,7 @@ async function abrir(r) {
 
 $('btnLogin').onclick = async () => {
   const { error } = await db.auth.signInWithPassword({ email: $('email').value, password: $('pass').value });
-  error ? msg('Email o contraseña incorrectos') : (msg(''), render());
+  error ? msg(error.message) : (msg(''), render());
 };
 $('btnSignup').onclick = async () => {
   const { error } = await db.auth.signUp({ email: $('email').value, password: $('pass').value });
