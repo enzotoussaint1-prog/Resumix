@@ -38,6 +38,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
+window.onerror = (m) => { document.getElementById('msg').textContent = 'Error: ' + m; };
+if (!window.supabase) { document.getElementById('msg').textContent = 'No cargó la librería de Supabase'; throw new Error('sin supabase'); }
 const SUPABASE_URL = 'https://gafyovwtymsaspipjrga.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wwso20bIM4YTZZt6-k3nlg_jbmFYn7E';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
