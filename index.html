@@ -47,11 +47,11 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const msg = t => $('msg').textContent = t || '';
 
-async function render() {
-  const { data: { session } } = await db.auth.getSession();
+function render(session) {
   $('auth').classList.toggle('hidden', !!session);
   $('app').classList.toggle('hidden', !session);
   if (session) cargarKits();
+  else { $('kits').innerHTML = ''; $('visor').classList.add('hidden'); }
 }
 
 async function cargarKits() {
