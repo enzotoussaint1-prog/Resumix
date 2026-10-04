@@ -71,6 +71,7 @@
   .mio{border:2px solid var(--ink);border-radius:14px;padding:16px;margin-bottom:14px;background:var(--paper)}
   .res{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--grid)}
   #visor iframe{width:100%;height:75vh;border:2px solid var(--ink);border-radius:10px;margin-top:10px}
+  #visor iframe.video{height:auto;aspect-ratio:16/9}
 
   /* Ingreso */
   dialog{border:2px solid var(--ink);border-radius:16px;padding:24px;width:min(380px,92vw);box-shadow:8px 8px 0 var(--ink)}
@@ -267,7 +268,7 @@ $('fMateria').onchange = e => { filtro.materia = e.target.value; pintarCatalogo(
 /* ---------- Mis kits ---------- */
 async function cargarMisKits() {
   const { data, error } = await db.from('compras')
-    .select('kits(id, nombre, recursos(id, titulo, tipo, orden))')
+    .select('kits(id, nombre, recursos(id, titulo, tipo, video_id, orden))')
     .eq('estado', 'aprobada');
   if (error) return msg('Error al cargar tus kits');
   tengo = new Set(data.map(c => c.kits.id));
@@ -279,7 +280,7 @@ async function cargarMisKits() {
     const k = c.kits;
     const caja = h('div', { class: 'mio' }, h('h3', {}, k.nombre));
     (k.recursos || []).sort((a, b) => a.orden - b.orden).forEach(r => {
-      caja.append(h('div', { class: 'res' }, h('span', {}, r.titulo), h('button', { class: 'btn', type: 'button', onclick: () => abrir(r) }, 'Abrir')));
+      caja.append(h('div', { class: 'res' }, h('span', {}, r.titulo), h('button', { class: 'btn', type: 'button', onclick: () => abrir(r) }, r.tipo === 'video' ? 'Ver video' : 'Abrir')));
     });
     cont.append(caja);
   });
@@ -287,6 +288,20 @@ async function cargarMisKits() {
 
 async function abrir(r) {
   msg('');
+  if (r.tipo === 'video') {
+    if (!r.video_id) return msg('Este video todavía no está disponible');
+    const visor = $('visor');
+    visor.classList.remove('hidden');
+    const player = h('iframe', {
+      class: 'video', title: r.titulo, allowfullscreen: '',
+      allow: 'accelerometer; encrypted-media; gyroscope; picture-in-picture',
+      referrerpolicy: 'strict-origin-when-cross-origin'
+    });
+    player.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(r.video_id) + '?rel=0&modestbranding=1';
+    visor.replaceChildren(player);
+    visor.scrollIntoView();
+    return;
+  }
   const { data, error } = await db.functions.invoke('obtener-archivo', { body: { recurso_id: r.id } });
   if (error || !data?.url) return msg('No se pudo abrir el archivo');
   const visor = $('visor');
