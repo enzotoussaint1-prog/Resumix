@@ -4,81 +4,273 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Resumix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body{font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:16px;background:#f6f7fb;color:#222}
-  h1{margin:8px 0}
-  .card{background:#fff;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-  input,button{font-size:16px;padding:10px;margin:4px 0;width:100%;box-sizing:border-box;border-radius:8px;border:1px solid #ccc}
-  button{background:#4f46e5;color:#fff;border:0;cursor:pointer}
-  button.sec{background:#e5e7eb;color:#222}
-  .res{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
-  .res button{width:auto;padding:8px 14px}
-  iframe{width:100%;height:70vh;border:0;border-radius:8px}
-  #msg{color:#b91c1c;min-height:20px}
-  .hidden{display:none}
+  :root{--paper:#F7F9FC;--ink:#14213D;--mark:#FFE45E;--margin:#E5484D;--grid:#DCE3F0;--muted:#56627C;--card:#fff}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:Figtree,system-ui,sans-serif;background:var(--paper);color:var(--ink);line-height:1.5}
+  h1,h2,h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.05;margin:0}
+  :focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  .hidden{display:none!important}
+
+  /* Barra superior */
+  header{position:sticky;top:0;z-index:5;background:rgba(247,249,252,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--grid)}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .logo{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.4rem;text-decoration:none;color:var(--ink)}
+  .logo span{background:linear-gradient(transparent 55%,var(--mark) 55%)}
+  nav{display:flex;gap:8px;align-items:center}
+  nav a.link{color:var(--ink);text-decoration:none;font-weight:500;padding:8px 10px}
+  .btn{font:600 1rem Figtree,sans-serif;border:2px solid var(--ink);background:var(--ink);color:#fff;border-radius:10px;padding:9px 16px;cursor:pointer}
+  .btn:hover{background:var(--mark);color:var(--ink)}
+  .btn.sec{background:transparent;color:var(--ink)}
+  .btn.sec:hover{background:var(--mark)}
+
+  /* Hero */
+  .hero{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:28px 28px;border-bottom:1px solid var(--grid)}
+  .hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding-top:64px;padding-bottom:72px}
+  .hero h1{font-size:clamp(2.4rem,6vw,4.2rem);font-weight:800;letter-spacing:-.02em}
+  .hero p{font-size:1.15rem;color:var(--muted);max-width:46ch;margin:18px 0 26px}
+  .hero .acciones{display:flex;gap:10px;flex-wrap:wrap}
+
+  /* Hoja de resumen (visual del hero) */
+  .hoja{position:relative;background:#fff;border:2px solid var(--ink);border-radius:6px;padding:22px 22px 22px 52px;transform:rotate(2deg);box-shadow:8px 8px 0 var(--ink);
+    background-image:repeating-linear-gradient(transparent 0 25px,#DCE3F0 25px 26px)}
+  .hoja::before{content:"";position:absolute;left:36px;top:0;bottom:0;width:2px;background:var(--margin)}
+  .hoja h3{font-size:1.15rem;margin-bottom:12px;background:#fff;display:inline-block;padding-right:6px}
+  .hoja p{margin:0;font-size:.95rem;line-height:26px;color:var(--ink);max-width:none}
+  .hoja mark{background:linear-gradient(var(--mark),var(--mark)) no-repeat 0 85%/0% 55%;color:inherit;animation:marcar .9s .5s ease-out forwards}
+  .hoja mark:nth-of-type(2){animation-delay:1.2s}
+  .hoja mark:nth-of-type(3){animation-delay:1.9s}
+  @keyframes marcar{to{background-size:100% 55%}}
+  @media (prefers-reduced-motion:reduce){.hoja mark{animation:none;background-size:100% 55%}html{scroll-behavior:auto}}
+
+  /* Catálogo y filtros */
+  section{padding:48px 0}
+  section h2{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:800;margin-bottom:6px}
+  .sub{color:var(--muted);margin:0 0 22px}
+  .filtros{display:grid;grid-template-columns:1fr 150px 190px;gap:10px;margin-bottom:14px}
+  .filtros input,.filtros select,.auth input{font:inherit;padding:11px 12px;border:2px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);width:100%}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+  .chip{font:500 .95rem Figtree,sans-serif;border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:999px;padding:6px 14px;cursor:pointer}
+  .chip[aria-pressed=true]{background:var(--ink);color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+  .kit{background:var(--card);border:2px solid var(--ink);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px}
+  .kit .cat{align-self:flex-start;background:var(--mark);font-weight:600;font-size:.85rem;padding:2px 10px;border-radius:6px}
+  .kit h3{font-size:1.3rem}
+  .kit .meta{color:var(--muted);font-size:.95rem}
+  .kit .pie{margin-top:auto;padding-top:10px;display:flex;justify-content:space-between;align-items:center;font-weight:600}
+  .tengo{background:var(--ink);color:#fff;border-radius:6px;font-size:.85rem;padding:2px 10px}
+  .vacio{grid-column:1/-1;border:2px dashed var(--grid);border-radius:14px;padding:28px;text-align:center;color:var(--muted)}
+
+  /* Mis kits */
+  #misKits{background:#fff;border-top:1px solid var(--grid);border-bottom:1px solid var(--grid)}
+  .mio{border:2px solid var(--ink);border-radius:14px;padding:16px;margin-bottom:14px;background:var(--paper)}
+  .res{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--grid)}
+  #visor iframe{width:100%;height:75vh;border:2px solid var(--ink);border-radius:10px;margin-top:10px}
+
+  /* Ingreso */
+  dialog{border:2px solid var(--ink);border-radius:16px;padding:24px;width:min(380px,92vw);box-shadow:8px 8px 0 var(--ink)}
+  dialog::backdrop{background:rgba(20,33,61,.45)}
+  .auth{display:grid;gap:10px}
+  .auth h2{font-size:1.6rem}
+  #msg{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--margin);color:#fff;font-weight:600;padding:10px 16px;border-radius:10px;max-width:90vw;z-index:20}
+  #msg.ok{background:var(--ink)}
+  footer{padding:28px 0;color:var(--muted);font-size:.9rem;border-top:1px solid var(--grid)}
+
+  @media (max-width:760px){
+    .hero .wrap{grid-template-columns:1fr;padding-top:40px;padding-bottom:48px}
+    .hoja{transform:rotate(1deg);margin-right:8px}
+    .filtros{grid-template-columns:1fr 1fr}
+    .filtros input{grid-column:1/-1}
+  }
 </style>
 </head>
 <body>
-<h1>Resumix</h1>
-<p id="msg"></p>
 
-<div id="auth" class="card">
-  <input id="email" type="email" placeholder="Email">
-  <input id="pass" type="password" placeholder="Contraseña">
-  <button id="btnLogin">Ingresar</button>
-  <button id="btnSignup" class="sec">Crear cuenta</button>
-</div>
+<header>
+  <div class="wrap">
+    <a class="logo" href="#top"><span>Resumix</span></a>
+    <nav>
+      <a class="link hidden" id="navMis" href="#misKits">Mis kits</a>
+      <button class="btn" id="btnAbrirLogin">Ingresar</button>
+      <button class="btn sec hidden" id="btnLogout">Cerrar sesión</button>
+    </nav>
+  </div>
+</header>
 
-<div id="app" class="hidden">
-  <button id="btnLogout" class="sec">Cerrar sesión</button>
-  <h2>Mis kits</h2>
-  <div id="kits"></div>
-  <div id="visor" class="card hidden"></div>
-</div>
+<main id="top">
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <h1>Resúmenes para llegar bien al parcial</h1>
+        <p>Kits de estudio por materia: resúmenes claros, con lo importante ya marcado. Elegí tu carrera y empezá a repasar.</p>
+        <div class="acciones">
+          <a class="btn" href="#catalogo" style="text-decoration:none;display:inline-block">Ver kits</a>
+          <button class="btn sec" id="btnHeroLogin">Ya tengo cuenta</button>
+        </div>
+      </div>
+      <div class="hoja" aria-hidden="true">
+        <h3>Genética U1-U2</h3>
+        <p>La <mark>herencia mendeliana</mark> explica cómo se transmiten los caracteres. Cada individuo recibe dos alelos, y el <mark>alelo dominante</mark> es el que se expresa en el fenotipo. En el cruzamiento de dos heterocigotas, la proporción es <mark>3:1</mark>.</p>
+      </div>
+    </div>
+  </div>
+
+  <section id="misKits" class="hidden">
+    <div class="wrap">
+      <h2>Mis kits</h2>
+      <p class="sub">Abrí cualquier recurso de los kits que ya tenés.</p>
+      <div id="kits"></div>
+      <div id="visor" class="hidden"></div>
+    </div>
+  </section>
+
+  <section id="catalogo">
+    <div class="wrap">
+      <h2>Catálogo</h2>
+      <p class="sub">Filtrá por carrera, año o materia.</p>
+      <div class="filtros">
+        <input id="fBuscar" type="search" placeholder="Buscar por nombre o materia" aria-label="Buscar kits">
+        <select id="fAnio" aria-label="Año"><option value="">Todos los años</option></select>
+        <select id="fMateria" aria-label="Materia"><option value="">Todas las materias</option></select>
+      </div>
+      <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap">Resumix</div></footer>
+
+<dialog id="dlg">
+  <form method="dialog" class="auth" id="authForm">
+    <h2>Ingresá a Resumix</h2>
+    <input id="email" type="email" placeholder="Email" autocomplete="email" required>
+    <input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password" required>
+    <button class="btn" id="btnLogin" type="button">Ingresar</button>
+    <button class="btn sec" id="btnSignup" type="button">Crear cuenta</button>
+    <button class="btn sec" id="btnCerrar" type="button">Cancelar</button>
+  </form>
+</dialog>
+
+<div id="msg" class="hidden" role="status"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-window.onerror = (m) => { document.getElementById('msg').textContent = 'Error: ' + m; };
-if (!window.supabase) { document.getElementById('msg').textContent = 'No cargó la librería de Supabase'; throw new Error('sin supabase'); }
-const SUPABASE_URL = 'https://gafyovwtymsaspipjrga.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_wwso20bIM4YTZZt6-k3nlg_jbmFYn7E';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 const $ = id => document.getElementById(id);
-const msg = t => $('msg').textContent = t || '';
+let msgTimer;
+function msg(t, ok) {
+  const el = $('msg');
+  clearTimeout(msgTimer);
+  el.textContent = t || '';
+  el.classList.toggle('hidden', !t);
+  el.classList.toggle('ok', !!ok);
+  if (t) msgTimer = setTimeout(() => el.classList.add('hidden'), 5000);
+}
+window.onerror = m => msg('Error: ' + m);
+if (!window.supabase) { msg('No cargó la librería de Supabase'); throw new Error('sin supabase'); }
 
-function render(session) {
-  $('auth').classList.toggle('hidden', !!session);
-  $('app').classList.toggle('hidden', !session);
-  if (session) cargarKits();
-  else { $('kits').innerHTML = ''; $('visor').classList.add('hidden'); }
+const db = supabase.createClient(
+  'https://gafyovwtymsaspipjrga.supabase.co',
+  'sb_publishable_wwso20bIM4YTZZt6-k3nlg_jbmFYn7E'
+);
+
+// Crea elementos sin usar innerHTML con datos de la base
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  Object.entries(props || {}).forEach(([k, v]) => k === 'class' ? el.className = v : k.startsWith('on') ? el[k] = v : el.setAttribute(k, v));
+  kids.flat().forEach(c => el.append(c));
+  return el;
+}
+const precio = n => Number(n) === 0 ? 'Gratis' : '$' + Number(n).toLocaleString('es-AR');
+
+/* ---------- Catálogo y filtros ---------- */
+let kitsCat = [], cats = [], tengo = new Set();
+const filtro = { q: '', cat: '', anio: '', materia: '' };
+
+async function cargarCatalogo() {
+  const [c, k] = await Promise.all([
+    db.from('categorias').select('id, nombre, slug').order('orden'),
+    db.from('kits').select('id, nombre, materia, anio, precio, categorias(slug, nombre)').eq('activo', true).order('nombre')
+  ]);
+  if (c.error || k.error) return msg('No se pudo cargar el catálogo');
+  cats = c.data; kitsCat = k.data;
+  armarFiltros();
+  pintarCatalogo();
 }
 
-async function cargarKits() {
+function opciones(sel, valores, etiqueta) {
+  const actual = sel.value;
+  sel.length = 1;
+  valores.forEach(v => sel.append(h('option', { value: v }, etiqueta ? etiqueta(v) : v)));
+  sel.value = actual;
+}
+
+function armarFiltros() {
+  const anios = [...new Set(kitsCat.map(k => k.anio).filter(Boolean))].sort((a, b) => a - b);
+  const materias = [...new Set(kitsCat.map(k => k.materia).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  opciones($('fAnio'), anios, a => a + '° año');
+  opciones($('fMateria'), materias);
+  const chips = $('chips');
+  chips.replaceChildren();
+  [{ slug: '', nombre: 'Todas' }, ...cats].forEach(c => {
+    chips.append(h('button', {
+      class: 'chip', type: 'button', 'aria-pressed': String(filtro.cat === c.slug),
+      onclick: () => { filtro.cat = c.slug; armarFiltros(); pintarCatalogo(); }
+    }, c.nombre));
+  });
+}
+
+function pintarCatalogo() {
+  const q = filtro.q.trim().toLowerCase();
+  const lista = kitsCat.filter(k =>
+    (!filtro.cat || k.categorias?.slug === filtro.cat) &&
+    (!filtro.anio || String(k.anio) === filtro.anio) &&
+    (!filtro.materia || k.materia === filtro.materia) &&
+    (!q || (k.nombre + ' ' + (k.materia || '')).toLowerCase().includes(q))
+  );
+  const grid = $('grid');
+  grid.replaceChildren();
+  if (!lista.length) {
+    grid.append(h('div', { class: 'vacio' }, 'No hay kits con esos filtros. Probá quitar alguno.'));
+    return;
+  }
+  lista.forEach(k => {
+    grid.append(h('article', { class: 'kit' },
+      k.categorias ? h('span', { class: 'cat' }, k.categorias.nombre) : '',
+      h('h3', {}, k.nombre),
+      h('div', { class: 'meta' }, [k.materia, k.anio ? k.anio + '° año' : ''].filter(Boolean).join(', ')),
+      h('div', { class: 'pie' }, h('span', {}, precio(k.precio)), tengo.has(k.id) ? h('span', { class: 'tengo' }, 'Ya lo tenés') : '')
+    ));
+  });
+}
+
+$('fBuscar').oninput = e => { filtro.q = e.target.value; pintarCatalogo(); };
+$('fAnio').onchange = e => { filtro.anio = e.target.value; pintarCatalogo(); };
+$('fMateria').onchange = e => { filtro.materia = e.target.value; pintarCatalogo(); };
+
+/* ---------- Mis kits ---------- */
+async function cargarMisKits() {
   const { data, error } = await db.from('compras')
-    .select('kits(nombre, materia, anio, recursos(id, titulo, tipo, orden))')
+    .select('kits(id, nombre, recursos(id, titulo, tipo, orden))')
     .eq('estado', 'aprobada');
   if (error) return msg('Error al cargar tus kits');
-  $('kits').innerHTML = '';
-  if (!data.length) $('kits').innerHTML = '<div class="card">Todavía no tenés kits.</div>';
+  tengo = new Set(data.map(c => c.kits.id));
+  pintarCatalogo();
+  const cont = $('kits');
+  cont.replaceChildren();
+  if (!data.length) cont.append(h('div', { class: 'vacio' }, 'Todavía no tenés kits. Cuando tengas uno, lo vas a ver acá.'));
   data.forEach(c => {
     const k = c.kits;
-    const div = document.createElement('div');
-    div.className = 'card';
-    div.innerHTML = '<strong></strong>';
-    div.firstChild.textContent = k.nombre;
+    const caja = h('div', { class: 'mio' }, h('h3', {}, k.nombre));
     (k.recursos || []).sort((a, b) => a.orden - b.orden).forEach(r => {
-      const fila = document.createElement('div');
-      fila.className = 'res';
-      const t = document.createElement('span');
-      t.textContent = r.titulo;
-      const b = document.createElement('button');
-      b.textContent = 'Abrir';
-      b.onclick = () => abrir(r);
-      fila.append(t, b);
-      div.append(fila);
+      caja.append(h('div', { class: 'res' }, h('span', {}, r.titulo), h('button', { class: 'btn', type: 'button', onclick: () => abrir(r) }, 'Abrir')));
     });
-    $('kits').append(div);
+    cont.append(caja);
   });
 }
 
@@ -88,25 +280,42 @@ async function abrir(r) {
   if (error || !data?.url) return msg('No se pudo abrir el archivo');
   const visor = $('visor');
   visor.classList.remove('hidden');
-  visor.innerHTML = '<iframe></iframe>';
-  visor.firstChild.src = data.url + '#toolbar=0';
+  const frame = h('iframe', { title: r.titulo });
+  frame.src = data.url + '#toolbar=0';
+  visor.replaceChildren(frame);
   visor.scrollIntoView();
 }
 
+/* ---------- Sesión ---------- */
+function render(session) {
+  $('btnAbrirLogin').classList.toggle('hidden', !!session);
+  $('btnHeroLogin').classList.toggle('hidden', !!session);
+  $('btnLogout').classList.toggle('hidden', !session);
+  $('navMis').classList.toggle('hidden', !session);
+  $('misKits').classList.toggle('hidden', !session);
+  if (session) { $('dlg').open && $('dlg').close(); cargarMisKits(); }
+  else { tengo = new Set(); $('kits').replaceChildren(); $('visor').classList.add('hidden'); pintarCatalogo(); }
+}
+
+const abrirLogin = () => $('dlg').showModal();
+$('btnAbrirLogin').onclick = abrirLogin;
+$('btnHeroLogin').onclick = abrirLogin;
+$('btnCerrar').onclick = () => $('dlg').close();
+
 $('btnLogin').onclick = async () => {
-  msg('');
   const { error } = await db.auth.signInWithPassword({ email: $('email').value, password: $('pass').value });
   if (error) msg(error.message);
 };
 $('btnSignup').onclick = async () => {
   const { error } = await db.auth.signUp({ email: $('email').value, password: $('pass').value });
-  msg(error ? error.message : 'Cuenta creada. Revisá tu email para confirmarla.');
+  error ? msg(error.message) : msg('Cuenta creada. Revisá tu email para confirmarla.', true);
 };
 $('btnLogout').onclick = async () => { await db.auth.signOut(); };
 
-db.auth.onAuthStateChange((_event, session) => {
-  setTimeout(() => render(session), 0); // el setTimeout evita el deadlock
-});
+// El setTimeout evita el deadlock de supabase-js al usar la sesión dentro del callback
+db.auth.onAuthStateChange((_evento, session) => setTimeout(() => render(session), 0));
+
+cargarCatalogo();
 </script>
 </body>
 </html>
