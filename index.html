@@ -77,6 +77,7 @@
   dialog::backdrop{background:rgba(20,33,61,.45)}
   .auth{display:grid;gap:10px}
   .auth h2{font-size:1.6rem}
+  .linkbtn{background:none;border:0;padding:6px;font:500 .95rem Figtree,sans-serif;color:var(--ink);text-decoration:underline;cursor:pointer;justify-self:center}
   #msg{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--margin);color:#fff;font-weight:600;padding:10px 16px;border-radius:10px;max-width:90vw;z-index:20}
   #msg.ok{background:var(--ink)}
   footer{padding:28px 0;color:var(--muted);font-size:.9rem;border-top:1px solid var(--grid)}
@@ -153,7 +154,17 @@
     <input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password" required>
     <button class="btn" id="btnLogin" type="button">Ingresar</button>
     <button class="btn sec" id="btnSignup" type="button">Crear cuenta</button>
+    <button class="linkbtn" id="btnOlvide" type="button">Olvidé mi contraseña</button>
     <button class="btn sec" id="btnCerrar" type="button">Cancelar</button>
+  </form>
+</dialog>
+
+<dialog id="dlgNueva">
+  <form method="dialog" class="auth">
+    <h2>Elegí una contraseña nueva</h2>
+    <input id="pass1" type="password" placeholder="Contraseña nueva" autocomplete="new-password" minlength="6">
+    <input id="pass2" type="password" placeholder="Repetí la contraseña" autocomplete="new-password" minlength="6">
+    <button class="btn" id="btnGuardarPass" type="button">Guardar contraseña</button>
   </form>
 </dialog>
 
@@ -312,8 +323,31 @@ $('btnSignup').onclick = async () => {
 };
 $('btnLogout').onclick = async () => { await db.auth.signOut(); };
 
+// Pedir el enlace de recuperación (la respuesta es la misma exista o no la cuenta)
+$('btnOlvide').onclick = async () => {
+  const email = $('email').value.trim();
+  if (!email) return msg('Escribí tu email arriba y volvé a tocar "Olvidé mi contraseña".');
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  error ? msg(error.message) : msg('Si ese email tiene cuenta, te enviamos un enlace para elegir una contraseña nueva.', true);
+};
+
+// Guardar la contraseña nueva (el usuario llega con sesión temporal desde el email)
+$('btnGuardarPass').onclick = async () => {
+  const p1 = $('pass1').value, p2 = $('pass2').value;
+  if (p1.length < 6) return msg('La contraseña debe tener al menos 6 caracteres.');
+  if (p1 !== p2) return msg('Las contraseñas no coinciden.');
+  const { error } = await db.auth.updateUser({ password: p1 });
+  if (error) return msg(error.message);
+  $('pass1').value = $('pass2').value = '';
+  $('dlgNueva').close();
+  msg('Contraseña actualizada.', true);
+};
+
 // El setTimeout evita el deadlock de supabase-js al usar la sesión dentro del callback
-db.auth.onAuthStateChange((_evento, session) => setTimeout(() => render(session), 0));
+db.auth.onAuthStateChange((evento, session) => setTimeout(() => {
+  render(session);
+  if (evento === 'PASSWORD_RECOVERY') $('dlgNueva').showModal();
+}, 0));
 
 cargarCatalogo();
 </script>
