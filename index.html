@@ -202,7 +202,7 @@ function h(tag, props, ...kids) {
 const precio = n => Number(n) === 0 ? 'Gratis' : '$' + Number(n).toLocaleString('es-AR');
 
 /* ---------- Catálogo y filtros ---------- */
-let kitsCat = [], cats = [], carreras = [], tengo = new Set();
+let kitsCat = [], cats = [], carreras = [], plan = [], tengo = new Set();
 const filtro = { q: '', cat: '', carrera: '', anio: '', materia: '' };
 
 // Carreras y años de un kit: salen del plan de estudios de su materia.
@@ -218,13 +218,18 @@ function normalizarKit(k) {
 }
 
 async function cargarCatalogo() {
-  const [c, k, r] = await Promise.all([
+  const [c, k, r, p] = await Promise.all([
     db.from('categorias').select('id, nombre, slug').order('orden'),
     db.from('kits').select('id, nombre, materia, anio, precio, categorias(slug, nombre), materias(nombre, plan_materias(anio, carreras(slug, nombre))), kit_carreras(carreras(slug, nombre))').eq('activo', true).order('nombre'),
-    db.from('carreras').select('nombre, slug, categorias(slug)').order('orden')
+    db.from('carreras').select('nombre, slug, categorias(slug)').order('orden'),
+    db.from('plan_materias').select('anio, cuatrimestre, orden, carreras(slug), materias(nombre)')
   ]);
-  if (c.error || k.error || r.error) return msg('No se pudo cargar el catálogo');
+  if (c.error || k.error || r.error || p.error) return msg('No se pudo cargar el catálogo');
   cats = c.data; carreras = r.data; kitsCat = k.data.map(normalizarKit);
+  plan = p.data
+    .map(x => ({ slug: x.carreras?.slug, nombre: x.materias?.nombre, anio: x.anio, cuat: x.cuatrimestre, orden: x.orden }))
+    .filter(x => x.slug && x.nombre)
+    .sort((a, b) => a.cuat - b.cuat || a.orden - b.orden);
   armarFiltros();
   pintarCatalogo();
 }
@@ -237,15 +242,30 @@ function opciones(sel, valores, etiqueta) {
 }
 
 function armarFiltros() {
-  const anios = [...new Set(kitsCat.flatMap(k => [k.anio, ...k.cursos.map(c => c.anio)]).filter(Boolean))].sort((a, b) => a - b);
-  const materias = [...new Set(kitsCat.map(k => k.materiaNombre).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
   // Si hay una categoría elegida, solo se ofrecen sus carreras
   const deLaCat = carreras.filter(c => !filtro.cat || c.categorias?.slug === filtro.cat);
   if (!deLaCat.some(c => c.slug === filtro.carrera)) filtro.carrera = '';
   opciones($('fCarrera'), deLaCat.map(c => c.slug), s => deLaCat.find(c => c.slug === s).nombre);
   $('fCarrera').value = filtro.carrera;
+
+  // Con una carrera elegida, año y materia salen de su plan de estudios completo
+  let anios, materias, etiquetaMateria = null;
+  if (filtro.carrera) {
+    const delPlan = plan.filter(p => p.slug === filtro.carrera);
+    anios = [...new Set(delPlan.map(p => p.anio))].sort((a, b) => a - b);
+    if (!anios.includes(Number(filtro.anio))) filtro.anio = '';
+    const filas = delPlan.filter(p => !filtro.anio || String(p.anio) === filtro.anio);
+    materias = [...new Set(filas.map(p => p.nombre))]; // en el orden del plan
+    if (!filtro.anio) etiquetaMateria = n => n + ' (' + filas.find(p => p.nombre === n).anio + '° año)';
+  } else {
+    anios = [...new Set([...plan.map(p => p.anio), ...kitsCat.map(k => k.anio)].filter(Boolean))].sort((a, b) => a - b);
+    materias = [...new Set(kitsCat.map(k => k.materiaNombre).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  }
+  if (!materias.includes(filtro.materia)) filtro.materia = '';
   opciones($('fAnio'), anios, a => a + '° año');
-  opciones($('fMateria'), materias);
+  $('fAnio').value = filtro.anio;
+  opciones($('fMateria'), materias, etiquetaMateria);
+  $('fMateria').value = filtro.materia;
   const chips = $('chips');
   chips.replaceChildren();
   [{ slug: '', nombre: 'Todas' }, ...cats].forEach(c => {
@@ -268,7 +288,7 @@ function pintarCatalogo() {
   const grid = $('grid');
   grid.replaceChildren();
   if (!lista.length) {
-    grid.append(h('div', { class: 'vacio' }, 'No hay kits con esos filtros. Probá quitar alguno.'));
+    grid.append(h('div', { class: 'vacio' }, filtro.carrera || filtro.materia ? 'Todavía no hay kits para esta selección. Probá con otro año o materia.' : 'No hay kits con esos filtros. Probá quitar alguno.'));
     return;
   }
   lista.forEach(k => {
@@ -283,8 +303,8 @@ function pintarCatalogo() {
 }
 
 $('fBuscar').oninput = e => { filtro.q = e.target.value; pintarCatalogo(); };
-$('fCarrera').onchange = e => { filtro.carrera = e.target.value; pintarCatalogo(); };
-$('fAnio').onchange = e => { filtro.anio = e.target.value; pintarCatalogo(); };
+$('fCarrera').onchange = e => { filtro.carrera = e.target.value; armarFiltros(); pintarCatalogo(); };
+$('fAnio').onchange = e => { filtro.anio = e.target.value; armarFiltros(); pintarCatalogo(); };
 $('fMateria').onchange = e => { filtro.materia = e.target.value; pintarCatalogo(); };
 
 /* ---------- Mis kits ---------- */
