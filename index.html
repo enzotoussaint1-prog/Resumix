@@ -52,7 +52,7 @@
   section{padding:48px 0}
   section h2{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:800;margin-bottom:6px}
   .sub{color:var(--muted);margin:0 0 22px}
-  .filtros{display:grid;grid-template-columns:1fr 150px 190px;gap:10px;margin-bottom:14px}
+  .filtros{display:grid;grid-template-columns:1fr 200px 140px 170px;gap:10px;margin-bottom:14px}
   .filtros input,.filtros select,.auth input{font:inherit;padding:11px 12px;border:2px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);width:100%}
   .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
   .chip{font:500 .95rem Figtree,sans-serif;border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:999px;padding:6px 14px;cursor:pointer}
@@ -87,7 +87,7 @@
     .hero .wrap{grid-template-columns:1fr;padding-top:40px;padding-bottom:48px}
     .hoja{transform:rotate(1deg);margin-right:8px}
     .filtros{grid-template-columns:1fr 1fr}
-    .filtros input{grid-column:1/-1}
+    .filtros input,#fCarrera{grid-column:1/-1}
   }
 </style>
 </head>
@@ -137,6 +137,7 @@
       <p class="sub">Filtrá por carrera, año o materia.</p>
       <div class="filtros">
         <input id="fBuscar" type="search" placeholder="Buscar por nombre o materia" aria-label="Buscar kits">
+        <select id="fCarrera" aria-label="Carrera"><option value="">Todas las carreras</option></select>
         <select id="fAnio" aria-label="Año"><option value="">Todos los años</option></select>
         <select id="fMateria" aria-label="Materia"><option value="">Todas las materias</option></select>
       </div>
@@ -201,16 +202,17 @@ function h(tag, props, ...kids) {
 const precio = n => Number(n) === 0 ? 'Gratis' : '$' + Number(n).toLocaleString('es-AR');
 
 /* ---------- Catálogo y filtros ---------- */
-let kitsCat = [], cats = [], tengo = new Set();
-const filtro = { q: '', cat: '', anio: '', materia: '' };
+let kitsCat = [], cats = [], carreras = [], tengo = new Set();
+const filtro = { q: '', cat: '', carrera: '', anio: '', materia: '' };
 
 async function cargarCatalogo() {
-  const [c, k] = await Promise.all([
+  const [c, k, r] = await Promise.all([
     db.from('categorias').select('id, nombre, slug').order('orden'),
-    db.from('kits').select('id, nombre, materia, anio, precio, categorias(slug, nombre)').eq('activo', true).order('nombre')
+    db.from('kits').select('id, nombre, materia, anio, precio, categorias(slug, nombre), kit_carreras(carreras(slug, nombre))').eq('activo', true).order('nombre'),
+    db.from('carreras').select('nombre, slug, categorias(slug)').order('orden')
   ]);
-  if (c.error || k.error) return msg('No se pudo cargar el catálogo');
-  cats = c.data; kitsCat = k.data;
+  if (c.error || k.error || r.error) return msg('No se pudo cargar el catálogo');
+  cats = c.data; kitsCat = k.data; carreras = r.data;
   armarFiltros();
   pintarCatalogo();
 }
@@ -225,6 +227,11 @@ function opciones(sel, valores, etiqueta) {
 function armarFiltros() {
   const anios = [...new Set(kitsCat.map(k => k.anio).filter(Boolean))].sort((a, b) => a - b);
   const materias = [...new Set(kitsCat.map(k => k.materia).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  // Si hay una categoría elegida, solo se ofrecen sus carreras
+  const deLaCat = carreras.filter(c => !filtro.cat || c.categorias?.slug === filtro.cat);
+  if (!deLaCat.some(c => c.slug === filtro.carrera)) filtro.carrera = '';
+  opciones($('fCarrera'), deLaCat.map(c => c.slug), s => deLaCat.find(c => c.slug === s).nombre);
+  $('fCarrera').value = filtro.carrera;
   opciones($('fAnio'), anios, a => a + '° año');
   opciones($('fMateria'), materias);
   const chips = $('chips');
@@ -241,6 +248,7 @@ function pintarCatalogo() {
   const q = filtro.q.trim().toLowerCase();
   const lista = kitsCat.filter(k =>
     (!filtro.cat || k.categorias?.slug === filtro.cat) &&
+    (!filtro.carrera || k.kit_carreras?.some(x => x.carreras?.slug === filtro.carrera)) &&
     (!filtro.anio || String(k.anio) === filtro.anio) &&
     (!filtro.materia || k.materia === filtro.materia) &&
     (!q || (k.nombre + ' ' + (k.materia || '')).toLowerCase().includes(q))
@@ -256,12 +264,14 @@ function pintarCatalogo() {
       k.categorias ? h('span', { class: 'cat' }, k.categorias.nombre) : '',
       h('h3', {}, k.nombre),
       h('div', { class: 'meta' }, [k.materia, k.anio ? k.anio + '° año' : ''].filter(Boolean).join(', ')),
+      (k.kit_carreras || []).length ? h('div', { class: 'meta' }, k.kit_carreras.map(x => x.carreras?.nombre).filter(Boolean).join(', ')) : '',
       h('div', { class: 'pie' }, h('span', {}, precio(k.precio)), tengo.has(k.id) ? h('span', { class: 'tengo' }, 'Ya lo tenés') : '')
     ));
   });
 }
 
 $('fBuscar').oninput = e => { filtro.q = e.target.value; pintarCatalogo(); };
+$('fCarrera').onchange = e => { filtro.carrera = e.target.value; pintarCatalogo(); };
 $('fAnio').onchange = e => { filtro.anio = e.target.value; pintarCatalogo(); };
 $('fMateria').onchange = e => { filtro.materia = e.target.value; pintarCatalogo(); };
 
