@@ -94,17 +94,19 @@ async function abrir(r) {
 }
 
 $('btnLogin').onclick = async () => {
+  msg('');
   const { error } = await db.auth.signInWithPassword({ email: $('email').value, password: $('pass').value });
-  error ? msg(error.message) : (msg(''), render());
+  if (error) msg(error.message);
 };
 $('btnSignup').onclick = async () => {
   const { error } = await db.auth.signUp({ email: $('email').value, password: $('pass').value });
   msg(error ? error.message : 'Cuenta creada. Revisá tu email para confirmarla.');
 };
-$('btnLogout').onclick = async () => { await db.auth.signOut(); $('visor').classList.add('hidden'); render(); };
+$('btnLogout').onclick = async () => { await db.auth.signOut(); };
 
-db.auth.onAuthStateChange(() => render());
-render();
+db.auth.onAuthStateChange((_event, session) => {
+  setTimeout(() => render(session), 0); // el setTimeout evita el deadlock
+});
 </script>
 </body>
 </html>
