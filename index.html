@@ -205,14 +205,26 @@ const precio = n => Number(n) === 0 ? 'Gratis' : '$' + Number(n).toLocaleString(
 let kitsCat = [], cats = [], carreras = [], tengo = new Set();
 const filtro = { q: '', cat: '', carrera: '', anio: '', materia: '' };
 
+// Carreras y años de un kit: salen del plan de estudios de su materia.
+// Si el kit no tiene materia vinculada, se usan las carreras asignadas a mano.
+function normalizarKit(k) {
+  const plan = k.materias?.plan_materias || [];
+  const origen = plan.length
+    ? plan.map(p => ({ slug: p.carreras?.slug, nombre: p.carreras?.nombre, anio: p.anio }))
+    : (k.kit_carreras || []).map(x => ({ slug: x.carreras?.slug, nombre: x.carreras?.nombre, anio: k.anio }));
+  const vistos = new Set();
+  const cursos = origen.filter(c => c.slug && !vistos.has(c.slug + c.anio) && vistos.add(c.slug + c.anio));
+  return { ...k, materiaNombre: k.materias?.nombre || k.materia || '', cursos };
+}
+
 async function cargarCatalogo() {
   const [c, k, r] = await Promise.all([
     db.from('categorias').select('id, nombre, slug').order('orden'),
-    db.from('kits').select('id, nombre, materia, anio, precio, categorias(slug, nombre), kit_carreras(carreras(slug, nombre))').eq('activo', true).order('nombre'),
+    db.from('kits').select('id, nombre, materia, anio, precio, categorias(slug, nombre), materias(nombre, plan_materias(anio, carreras(slug, nombre))), kit_carreras(carreras(slug, nombre))').eq('activo', true).order('nombre'),
     db.from('carreras').select('nombre, slug, categorias(slug)').order('orden')
   ]);
   if (c.error || k.error || r.error) return msg('No se pudo cargar el catálogo');
-  cats = c.data; kitsCat = k.data; carreras = r.data;
+  cats = c.data; carreras = r.data; kitsCat = k.data.map(normalizarKit);
   armarFiltros();
   pintarCatalogo();
 }
@@ -225,8 +237,8 @@ function opciones(sel, valores, etiqueta) {
 }
 
 function armarFiltros() {
-  const anios = [...new Set(kitsCat.map(k => k.anio).filter(Boolean))].sort((a, b) => a - b);
-  const materias = [...new Set(kitsCat.map(k => k.materia).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const anios = [...new Set(kitsCat.flatMap(k => [k.anio, ...k.cursos.map(c => c.anio)]).filter(Boolean))].sort((a, b) => a - b);
+  const materias = [...new Set(kitsCat.map(k => k.materiaNombre).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
   // Si hay una categoría elegida, solo se ofrecen sus carreras
   const deLaCat = carreras.filter(c => !filtro.cat || c.categorias?.slug === filtro.cat);
   if (!deLaCat.some(c => c.slug === filtro.carrera)) filtro.carrera = '';
@@ -248,10 +260,10 @@ function pintarCatalogo() {
   const q = filtro.q.trim().toLowerCase();
   const lista = kitsCat.filter(k =>
     (!filtro.cat || k.categorias?.slug === filtro.cat) &&
-    (!filtro.carrera || k.kit_carreras?.some(x => x.carreras?.slug === filtro.carrera)) &&
-    (!filtro.anio || String(k.anio) === filtro.anio) &&
-    (!filtro.materia || k.materia === filtro.materia) &&
-    (!q || (k.nombre + ' ' + (k.materia || '')).toLowerCase().includes(q))
+    (!filtro.carrera || k.cursos.some(c => c.slug === filtro.carrera && (!filtro.anio || String(c.anio) === filtro.anio))) &&
+    (!filtro.anio || String(k.anio) === filtro.anio || k.cursos.some(c => String(c.anio) === filtro.anio)) &&
+    (!filtro.materia || k.materiaNombre === filtro.materia) &&
+    (!q || (k.nombre + ' ' + k.materiaNombre).toLowerCase().includes(q))
   );
   const grid = $('grid');
   grid.replaceChildren();
@@ -263,8 +275,8 @@ function pintarCatalogo() {
     grid.append(h('article', { class: 'kit' },
       k.categorias ? h('span', { class: 'cat' }, k.categorias.nombre) : '',
       h('h3', {}, k.nombre),
-      h('div', { class: 'meta' }, [k.materia, k.anio ? k.anio + '° año' : ''].filter(Boolean).join(', ')),
-      (k.kit_carreras || []).length ? h('div', { class: 'meta' }, k.kit_carreras.map(x => x.carreras?.nombre).filter(Boolean).join(', ')) : '',
+      h('div', { class: 'meta' }, [k.materiaNombre, k.anio ? k.anio + '° año' : ''].filter(Boolean).join(', ')),
+      k.cursos.length ? h('div', { class: 'meta' }, k.cursos.map(c => c.nombre + (c.anio ? ' (' + c.anio + '° año)' : '')).join(', ')) : '',
       h('div', { class: 'pie' }, h('span', {}, precio(k.precio)), tengo.has(k.id) ? h('span', { class: 'tengo' }, 'Ya lo tenés') : '')
     ));
   });
